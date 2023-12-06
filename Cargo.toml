@@ -6,10 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-
+nom = "7"
 [[bin]]
 path = "src/1.rs"
 name = "1"
-#[[bin]]
-#path = "src/2.rs"
-#name = "2"
+[[bin]]
+path = "src/2.rs"
+name = "2"
