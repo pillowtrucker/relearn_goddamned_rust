@@ -2,8 +2,8 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     bytes::streaming::take_while_m_n,
-    combinator::{eof, map_res, opt, peek},
-    error::{make_error, ErrorKind, FromExternalError, ParseError},
+    combinator::{eof, map_res, opt},
+    error::ErrorKind,
     multi::{many_m_n, many_till},
     sequence::delimited,
     *,
@@ -12,7 +12,7 @@ use std::{
     cmp::Ordering,
     env,
     fs::File,
-    io::{self, BufRead as _, BufReader, Lines},
+    io::{BufRead as _, BufReader, Lines},
     num::ParseIntError,
     path::Path,
 };
@@ -41,13 +41,12 @@ fn main() {
             Err(_) => 0,
         };
 
-        /*
-            let resb: i32 = match read_lines(fname) {
-                Ok(lines) => b(lines),
-                Err(_) => 0,
-            };
-        */
-        println!("part 1: {}, part 2: {}", resa, 0); //, resb);
+        let resb: u32 = match read_lines(fname) {
+            Ok(lines) => b(lines),
+            Err(_) => 0,
+        };
+
+        println!("part 1: {}, part 2: {}", resa, resb);
     }
 }
 fn read_lines<P>(filename: P) -> std::io::Result<Lines<BufReader<File>>>
@@ -84,6 +83,47 @@ impl PartialOrd for Bag {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
+}
+
+fn b(lines: Lines<BufReader<File>>) -> u32 {
+    let games: Vec<Game> = lines
+        .map(|l| -> IResult<String, Game> {
+            match l {
+                Ok(input) => match game(&input) {
+                    Ok((input, game)) => Ok((input.to_owned(), game)),
+                    Err(e) => Err(e.to_owned()),
+                },
+                Err(e) => Err(nom::Err::Failure(nom::error::Error {
+                    input: e.to_string(),
+                    code: ErrorKind::Eof,
+                })),
+            }
+        })
+        .filter(Result::is_ok)
+        .map(Result::unwrap)
+        .map(|h| h.1)
+        .collect();
+    games.iter().fold(0, |acc, g| {
+        println!("{:?}", g);
+        let mut max_red = Ballsack::Red(0);
+        let mut max_green = Ballsack::Green(0);
+        let mut max_blue = Ballsack::Blue(0);
+        g.bags.iter().for_each(|b| {
+            if b.ballsack_green > max_green {
+                max_green = b.ballsack_green;
+            }
+            if b.ballsack_blue > max_blue {
+                max_blue = b.ballsack_blue;
+            }
+            if b.ballsack_red > max_red {
+                max_red = b.ballsack_red;
+            }
+        });
+        match (max_red, max_green, max_blue) {
+            (Ballsack::Red(r), Ballsack::Green(g), Ballsack::Blue(b)) => acc + r * g * b,
+            _ => 0,
+        }
+    })
 }
 
 fn a(lines: Lines<BufReader<File>>, max_bag: Bag) -> u32 {
