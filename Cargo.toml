@@ -7,9 +7,13 @@ edition = "2021"
 
 [dependencies]
 nom = "7"
+ndarray = { version = "0.15.0", features = ["rayon"] }
 [[bin]]
 path = "src/1.rs"
 name = "1"
 [[bin]]
 path = "src/2.rs"
 name = "2"
+[[bin]]
+path = "src/3.rs"
+name = "3"
