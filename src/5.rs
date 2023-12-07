@@ -55,6 +55,49 @@ where
     Ok(BufReader::new(file).lines())
 }
 
+fn translate(id: f64, origin: &str, destination: &str, almanach: &Almanach) -> f64 {
+    let mut inter_dest = &almanach.mappes[destination];
+    let mut ballsack = vec![];
+    //    let mut ballsack = vec![destination.to_owned()];
+    while (inter_dest.src_name != origin) {
+        println!("pushing {}", inter_dest.src_name);
+        ballsack.push(inter_dest.src_name.to_owned());
+        inter_dest = &almanach.mappes[&inter_dest.src_name];
+    }
+    let mut nid = id;
+    println!("starting seed {}", nid);
+    println!("my ballsack {:?}", ballsack);
+    ballsack.pop();
+    //    ballsack.push(destination.to_owned());
+    while let Some(to_visit) = ballsack.pop() {
+        println!(
+            "seed {} looking first in {} to {} map",
+            nid, inter_dest.src_name, inter_dest.dst_name
+        );
+        if let Some(good_trans) = inter_dest
+            .translations
+            .iter()
+            .filter(|t| t.src <= nid && nid <= t.src + t.span)
+            .collect::<Vec<_>>()
+            .first()
+        {
+            let offset = nid - good_trans.src;
+            nid = good_trans.dst + offset;
+
+            inter_dest = &almanach.mappes[&to_visit];
+            println!(
+                "new id {} in {} to {} map",
+                nid, inter_dest.src_name, inter_dest.dst_name
+            );
+        } else {
+            inter_dest = &almanach.mappes[&to_visit];
+        }
+    }
+    println!("last inter_dest for {}: {:?}", nid, inter_dest);
+
+    nid
+}
+
 fn a(lines: Lines<BufReader<File>>) -> IResult<String, f64> {
     let the_body = lines.fold("".to_owned(), |acc: String, l| {
         if let Ok(l) = l {
@@ -69,7 +112,13 @@ fn a(lines: Lines<BufReader<File>>) -> IResult<String, f64> {
     println!("{:?}", res);
     match res {
         Ok((input, the_almanach)) => {
-            //            println!("{:?}", the_almanach);
+            let locations: Vec<f64> = the_almanach
+                .seeds
+                //                .par_iter()
+                .iter()
+                .map(|seed| translate(*seed, "seed", "location", &the_almanach))
+                .collect();
+            println!("locations: {:?}", locations);
             Ok((input.to_owned(), 0.0))
         }
         Err(e) => Err(e.to_owned()),
