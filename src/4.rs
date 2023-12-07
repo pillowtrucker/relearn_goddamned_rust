@@ -1,3 +1,4 @@
+use ndarray::parallel::prelude::IntoParallelRefIterator;
 use nom::{
     branch::alt,
     bytes::{
@@ -18,6 +19,7 @@ use std::{
     fs::File,
     io::{BufRead as _, BufReader, Lines},
     num::ParseIntError,
+    ops::Index,
     path::Path,
 };
 
@@ -45,6 +47,17 @@ where
     Ok(BufReader::new(file).lines())
 }
 
+fn get_points(cards: &Vec<Card>, cid: u32) -> u32 {
+    let mut mine = 1;
+    let crd = &cards[cid as usize - 1];
+    let won = crd.present.intersection(&crd.winning).count() as u32;
+    for i in crd.cid + 1..crd.cid + 1 + won {
+        println!("adding points from {} to {}", i, cid);
+        mine += get_points(cards, i);
+    }
+    mine
+}
+
 fn a(lines: Lines<BufReader<File>>) -> u32 {
     let cards: Vec<Card> = lines
         .map(|l| -> IResult<String, Card> {
@@ -66,6 +79,10 @@ fn a(lines: Lines<BufReader<File>>) -> u32 {
         .map(Result::unwrap)
         .map(|h| h.1)
         .collect();
+    let punkty = cards
+        .iter()
+        .fold(0, |acc, crd| acc + get_points(&cards, crd.cid) as usize);
+    println!("part b: {}", punkty);
     cards.iter().fold(0, |acc, crd| {
         let exponent = crd.present.intersection(&crd.winning).count();
         println!("{:?}", crd);
