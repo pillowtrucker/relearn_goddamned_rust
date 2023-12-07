@@ -38,7 +38,7 @@ where
     Ok(BufReader::new(file).lines())
 }
 
-#[derive(Hash, Eq, PartialEq, Debug)]
+#[derive(Hash, Eq, PartialEq, Debug, Clone, Copy)]
 struct Booger {
     num: u32,
     x_start: usize,
@@ -69,6 +69,7 @@ fn a(lines: Lines<BufReader<File>>) -> u32 {
     });
     println!("{:?}", grid);
     let mut h = HashSet::<Booger>::new();
+    let mut gear_markers = HashMap::<(usize, usize), HashSet<Booger>>::new();
     grid.indexed_iter().for_each(|((yy, xx), elem)| {
         if elem.is_ascii_digit() {
             let mut x_start = xx;
@@ -142,6 +143,8 @@ fn a(lines: Lines<BufReader<File>>) -> u32 {
             );
             if (!bogered) {
                 if let Ok(num) = num_s.parse::<u32>() {
+                    let maybe_gear_markers = num_border.indexed_iter().filter(|bog| *bog.1 == '*');
+
                     let b = Booger {
                         x_start,
                         x_end,
@@ -149,10 +152,30 @@ fn a(lines: Lines<BufReader<File>>) -> u32 {
                         y,
                     };
                     HashSet::insert(&mut h, b);
-                    println!("{:?}", h);
+                    maybe_gear_markers.for_each(|((yy, xx), mgm)| {
+                        let yyy = sl_border_v.start as usize + yy;
+                        let xxx = sl_border_h.start as usize + xx;
+                        if (gear_markers.contains_key(&(yyy, xxx))) {
+                            let mut oldset = gear_markers[&(yyy, xxx)].clone();
+                            oldset.insert(b);
+                            gear_markers.insert((yyy, xxx), oldset);
+                        } else {
+                            gear_markers.insert((yyy, xxx), HashSet::from([b]));
+                        }
+                    });
+                    //                    println!("{:?}", h);
+                    println!("{:?}", gear_markers);
                 }
             }
         }
     });
+    let part_b = gear_markers.iter().fold(0, |acc, (_, gear_set)| {
+        if gear_set.len() == 2 {
+            acc + gear_set.iter().fold(1, |acc, gear| acc * gear.num)
+        } else {
+            acc
+        }
+    });
+    println!("part b: {}", part_b);
     h.iter().fold(0, |acc, unique_boger| acc + unique_boger.num)
 }
