@@ -30,3 +30,6 @@ name = "6"
 [[bin]]
 path = "src/7.rs"
 name = "7"
+[[bin]]
+path = "src/7b.rs"
+name = "7b"
