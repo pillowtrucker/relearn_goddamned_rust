@@ -13,7 +13,7 @@ use nom::{
     combinator::{cut, eof, map_res, opt},
     error::ErrorKind,
     multi::{many0, many1, many_m_n, many_till},
-    sequence::{delimited, preceded},
+    sequence::{delimited, preceded, tuple},
     *,
 };
 use std::{
@@ -33,7 +33,7 @@ fn main() {
     let fname = &args[1];
 
     let resa: f64 = match read_lines(fname) {
-        Ok(lines) => match a(lines) {
+        Ok(lines) => match b(lines) {
             Ok((_, res)) => res,
             Err(_) => 0.0,
         },
@@ -55,27 +55,27 @@ where
     Ok(BufReader::new(file).lines())
 }
 
-fn translate(id: f64, origin: &str, destination: &str, almanach: &Almanach) -> f64 {
+fn translate(id: f64, origin: &str, destination: &str, almanach: &RealAlmanach) -> f64 {
     let mut inter_dest = &almanach.mappes[destination];
     //let mut ballsack = vec![];
     let mut ballsack = vec![destination.to_owned()];
     while (inter_dest.src_name != origin) {
-        println!("pushing {}", inter_dest.src_name);
+        //        println!("pushing {}", inter_dest.src_name);
         ballsack.push(inter_dest.src_name.to_owned());
         inter_dest = &almanach.mappes[&inter_dest.src_name];
     }
     let mut nid = id;
-    println!("starting seed {}", nid);
+    //    println!("starting seed {}", nid);
 
     ballsack.pop();
     //ballsack.push(destination.to_owned());
-    println!("my ballsack {:?}", ballsack);
+    //    println!("my ballsack {:?}", ballsack);
     loop {
         if let Some(to_visit) = ballsack.pop() {
-            println!(
-                "seed {} looking first in {} to {} map",
-                nid, inter_dest.src_name, inter_dest.dst_name
-            );
+            //            println!(
+            //                "seed {} looking first in {} to {} map",
+            //                nid, inter_dest.src_name, inter_dest.dst_name
+            //            );
             if let Some(good_trans) = inter_dest
                 .translations
                 .iter()
@@ -87,10 +87,10 @@ fn translate(id: f64, origin: &str, destination: &str, almanach: &Almanach) -> f
                 nid = good_trans.dst + offset;
 
                 inter_dest = &almanach.mappes[&to_visit];
-                println!(
-                    "new id {} in {} to {} map",
-                    nid, inter_dest.src_name, inter_dest.dst_name
-                );
+            //                println!(
+            //                    "new id {} in {} to {} map",
+            //                    nid, inter_dest.src_name, inter_dest.dst_name
+            //                );
             } else {
                 inter_dest = &almanach.mappes[&to_visit];
             }
@@ -108,11 +108,11 @@ fn translate(id: f64, origin: &str, destination: &str, almanach: &Almanach) -> f
             break;
         }
     }
-    println!("last inter_dest for {}: {:?}", nid, inter_dest);
+    //    println!("last inter_dest for {}: {:?}", nid, inter_dest);
 
     nid
 }
-
+/*
 fn a(lines: Lines<BufReader<File>>) -> IResult<String, f64> {
     let the_body = lines.fold("".to_owned(), |acc: String, l| {
         if let Ok(l) = l {
@@ -141,6 +141,51 @@ fn a(lines: Lines<BufReader<File>>) -> IResult<String, f64> {
                     .min_by(|arg0: &&f64, other: &&f64| f64::total_cmp(*arg0, *other)) // so safe and elegant
                     .unwrap()
                     .to_owned(),
+            ))
+        }
+        Err(e) => Err(e.to_owned()),
+    }
+}
+*/
+fn b(lines: Lines<BufReader<File>>) -> IResult<String, f64> {
+    let the_body = lines.fold("".to_owned(), |acc: String, l| {
+        if let Ok(l) = l {
+            format!("{}{}\n", acc, l)
+        } else {
+            acc
+        }
+    });
+
+    //    print!("{}", the_body);
+    let res = real_almanach(&the_body);
+    //    println!("{:?}", res);
+    match res {
+        Ok((input, the_almanach)) => {
+            let locations: Vec<f64> = the_almanach
+                .seed_ranges
+                .par_iter()
+                //.iter()
+                .map(|seed_range| {
+                    println!("seed_range {:?}", seed_range);
+                    let locs: Vec<u64> = (seed_range.0 as u64
+                        ..seed_range.0 as u64 + seed_range.1 as u64 + 1)
+                        .collect();
+                    //                    println!("stupid locs {:?}", locs);
+                    locs.iter()
+                        .map(|seed| translate(*seed as f64, "seed", "location", &the_almanach))
+                        .min_by(|arg0: &f64, other: &f64| f64::total_cmp(arg0, other))
+                        .unwrap()
+                        .to_owned()
+                })
+                .collect();
+            println!("locations: {:?}", locations);
+            Ok((
+                input.to_owned(),
+                locations
+                    .iter()
+                    .min_by(|arg0: &&f64, other: &&f64| f64::total_cmp(*arg0, *other)) // so safe and elegant
+                    .unwrap()
+                    .to_owned(), // this might be off by one too
             ))
         }
         Err(e) => Err(e.to_owned()),
@@ -183,6 +228,38 @@ fn almanach(input: &str) -> IResult<&str, Almanach> {
         h.insert(m.dst_name.to_owned(), m.to_owned());
     });
     Ok((input, Almanach { seeds, mappes: h }))
+}
+
+fn real_almanach(input: &str) -> IResult<&str, RealAlmanach> {
+    let (input, real_seeds) = real_seeds(input)?;
+    let (input, _) = tag("\n\n").parse(input)?;
+    let (input, (mappes, _)) = many_till(mappe, eof).parse(input)?;
+    let mut h = HashMap::<String, Mappe>::new();
+    mappes.iter().for_each(|m| {
+        h.insert(m.dst_name.to_owned(), m.to_owned());
+    });
+    Ok((
+        input,
+        RealAlmanach {
+            seed_ranges: ArcArray1::from_vec(real_seeds),
+            mappes: h,
+        },
+    ))
+}
+fn real_seeds(input: &str) -> IResult<&str, Vec<(f64, f64)>> {
+    let (input, _) = tag("seeds:").parse(input)?;
+    let (input, seed_pairs) = many1(tuple((
+        preceded(multispace1, take_number),
+        preceded(multispace1, take_number),
+    )))
+    .parse(input)?;
+    Ok((input, seed_pairs))
+}
+
+#[derive(Clone, Debug)]
+struct RealAlmanach {
+    seed_ranges: ArcArray1<(f64, f64)>,
+    mappes: HashMap<String, Mappe>,
 }
 
 #[derive(Clone, Debug)]
