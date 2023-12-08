@@ -134,7 +134,22 @@ fn a(lines: Lines<BufReader<File>>) -> IResult<String, f64> {
                 .map(|(t, d)| ways_to_win(*t, *d))
                 .reduce(|a, b| a * b)
                 .unwrap();
-            //            ways_to_win(the_races.0[0], the_races.1[0]);
+            // for part b
+            let pb = ways_to_win(
+                the_races
+                    .0
+                    .iter()
+                    .fold("".to_owned(), |a, b| format!("{}{}", a, b))
+                    .parse::<f64>()
+                    .unwrap(),
+                the_races
+                    .1
+                    .iter()
+                    .fold("".to_owned(), |a, b| format!("{}{}", a, b))
+                    .parse::<f64>()
+                    .unwrap(),
+            );
+            println!("part b {}", pb);
             Ok((input.to_owned(), good_numbar))
         }
         Err(e) => Err(e.to_owned()),
