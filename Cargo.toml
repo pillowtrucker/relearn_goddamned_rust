@@ -23,3 +23,6 @@ name = "4"
 [[bin]]
 path = "src/5.rs"
 name = "5"
+[[bin]]
+path = "src/6.rs"
+name = "6"
