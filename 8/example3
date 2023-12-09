@@ -1,0 +1,10 @@
+LR
+
+SSA = (SSB, XXX)
+SSB = (XXX, SSZ)
+SSZ = (SSB, XXX)
+QQA = (QQB, XXX)
+QQB = (QQC, QQC)
+QQC = (QQZ, QQZ)
+QQZ = (QQB, QQB)
+XXX = (XXX, XXX)

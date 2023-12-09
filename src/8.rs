@@ -21,7 +21,8 @@ use nom::{
     sequence::{delimited, preceded, separated_pair, tuple, Tuple},
     *,
 };
-use petgraph::graphmap::DiGraphMap;
+use num::{integer::lcm, Integer};
+use petgraph::{csr::Csr, graphmap::DiGraphMap, visit::IntoEdgeReferences, Directed};
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
@@ -46,10 +47,10 @@ fn main() {
     };
     /*
         let resb: u32 = match read_lines(fname) {
-            Ok(lines) => b(lines),
-            Err(_) => 0,
-        };
-    */
+        Ok(lines) => b(lines),
+        Err(_) => 0,
+    };
+         */
     println!("part 1: {}, part 2: {}", resa, 0) //, resb);
 }
 fn read_lines<P>(filename: P) -> std::io::Result<Lines<BufReader<File>>>
@@ -73,30 +74,47 @@ fn a(lines: Lines<BufReader<File>>) -> IResult<String, u64> {
     println!("{:?}", res);
     match res {
         Ok((input, caca)) => {
-            let mut cur = poor_mans_hash("AAA");
-            let mut final_steps = 0;
-            while cur != poor_mans_hash("ZZZ") {
-                for dir in caca.caca.clone().into_iter() {
-                    final_steps += 1;
-
-                    let ok = caca.poopoo.edges(cur);
-                    let hng: Vec<_> = ok.collect();
-                    let checkdupes = hng.len();
-                    let next = if checkdupes < 2 {
-                        hng.first().unwrap()
-                    } else {
-                        hng.iter().find(|shitto| *shitto.2 == dir).unwrap()
-                    };
-                    println!(
-                        "step {final_steps:?} dir {dir:?} cur {cur:?} next {next:?} edges {hng:?}"
-                    );
-                    cur = next.1;
-                    if (cur == poor_mans_hash("ZZZ")) {
-                        break;
+            let mut results = Vec::<(usize, [u8; 3], [u8; 3])>::new();
+            results = caca
+                .starts
+                .par_iter()
+                .map(|start| {
+                    let mut cur = *start;
+                    let mut final_steps = 0;
+                    while cur[2] != b'Z' {
+                        for dir in caca.caca.clone().into_iter() {
+                            final_steps += 1;
+                            let ok = caca.poopoo.edges(cur);
+                            let hng: Vec<_> = ok.collect();
+                            let checkdupes = hng.len();
+                            let next = if checkdupes < 2 {
+                                hng.first().unwrap().clone().to_owned()
+                            } else {
+                                hng.iter()
+                                    .find(|shitto| *shitto.2 == dir)
+                                    .unwrap()
+                                    .clone()
+                                    .to_owned()
+                            };
+                            if (final_steps % 1000 == 0) {
+                                println!("step {final_steps:?} start {start:?} dir {dir:?} cur {cur:?} next {next:?} edges {hng:?}");
+                            }
+                            cur = next.1;
+                            if (cur[2] == b'Z') {
+                                break;
+                            }
+                        }
                     }
-                }
-            }
-            Ok((input.to_owned(), final_steps as u64))
+                    (final_steps, cur.to_owned(), start.to_owned())
+                })
+                .collect();
+            println!("results {results:?}");
+            let probably_result = results.iter().fold(1, |acc, rr| {
+                let frr = rr.0 as u64;
+                lcm(acc, frr)
+            });
+
+            Ok((input.to_owned(), probably_result))
         }
         Err(e) => Err(e.to_owned()),
     }
@@ -111,6 +129,7 @@ use crate::LR::*;
 struct Peepee {
     caca: Vec<LR>,
     poopoo: DiGraphMap<Ingot, LR>,
+    starts: Vec<Ingot>,
 }
 #[derive(Debug, Clone)]
 struct RawPoopoo {
@@ -122,11 +141,21 @@ fn peepee(input: &str) -> IResult<&str, Peepee> {
     let (input, caca) = many1(one_of("LR")).parse(input)?;
     let (input, _) = tag("\n\n").parse(input)?;
     let (input, raw_poopoos) = many1(raw_poopoo).parse(input)?;
-    for raw_poopoo in raw_poopoos {
+    for raw_poopoo in raw_poopoos.clone() {
         poopoo.add_node(raw_poopoo.ingot);
         poopoo.add_edge(raw_poopoo.ingot, raw_poopoo.snakes.0, L);
         poopoo.add_edge(raw_poopoo.ingot, raw_poopoo.snakes.1, R);
     }
+    let starts = raw_poopoos
+        .iter()
+        .filter_map(|raw_poo| {
+            if raw_poo.ingot[2] == b'A' {
+                Some(raw_poo.ingot)
+            } else {
+                None
+            }
+        })
+        .collect();
     Ok((
         input,
         Peepee {
@@ -139,6 +168,7 @@ fn peepee(input: &str) -> IResult<&str, Peepee> {
                 })
                 .collect(),
             poopoo,
+            starts,
         },
     ))
 }
@@ -156,15 +186,14 @@ fn raw_poopoo(input: &str) -> IResult<&str, RawPoopoo> {
         },
     ))
 }
-fn poor_mans_hash(input: &str) -> u64 {
-    let mut buf = [0u8; 8];
-    let len = 8.min(input.len());
+fn mangle(input: &str) -> [u8; 3] {
+    let mut buf = [0u8; 3];
+    let len = 3.min(input.len());
     buf[..len].copy_from_slice(&input.as_bytes()[..len]);
-    u64::from_be_bytes(buf)
+    buf
 }
-type Ingot = u64;
+type Ingot = [u8; 3];
 fn ingot(input: &str) -> IResult<&str, Ingot> {
     let (input, ingot) = take_while_m_n(3, 3, |c: char| c.is_ascii_uppercase()).parse(input)?;
-    let fuck_you = poor_mans_hash(ingot);
-    Ok((input, fuck_you))
+    Ok((input, mangle(ingot)))
 }
