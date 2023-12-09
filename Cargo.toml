@@ -11,6 +11,10 @@ ndarray = { version = "0.15.0", features = ["rayon"] }
 itertools = "0.12.0"
 petgraph = {version = "0.6.4"}
 num = "0.4.1"
+#winter-math = "0.7.1"
+#ark-poly = "0.4.2"
+#polynomial = "0.2.6"
+# I don't think curve-fitting will work for day9
 [[bin]]
 path = "src/1.rs"
 name = "1"
@@ -38,3 +42,6 @@ name = "7b"
 [[bin]]
 path = "src/8.rs"
 name = "8"
+[[bin]]
+path = "src/9.rs"
+name = "9"
