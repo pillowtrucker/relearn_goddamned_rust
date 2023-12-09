@@ -92,58 +92,65 @@ fn cards(input: &str) -> IResult<&str, Vec<Cards>> {
 use crate::Hand::*;
 fn cards_to_hand(mut cards: Vec<u8>) -> Hand {
     cards.sort();
-    cards
-        .iter()
-        .dedup_with_count()
-        .map(|(cn, c)| {
-            (
-                match cn {
-                    1 => High,
-                    2 => Pair,
-                    3 => Three,
-                    4 => Chariot,
-                    5 => Five,
-                    _ => High,
-                },
-                c,
-            )
-        })
-        .reduce(|h1, h2| {
-            if (h1.1 == 1 || *h2.1 == 1) {
-                match (h1.0, h2.0) {
-                    (High, High) => Pair,
-                    (High, Pair) => Three,
-                    (Pair, High) => Three,
-                    (High, Three) => Chariot,
-                    (Three, High) => Chariot,
-                    (Chariot, High) => Five,
-                    (High, Chariot) => Five,
-                    (Pair, Three) => Five,
-                    (Three, Pair) => Five,
-                    (Pair, Pair) => Chariot,
-                    (High, TwoPair) => FullHouse,
-                    (TwoPair, High) => FullHouse,
-                    _ => High, // this is stupid, TODO: just manipulate the counts before comparing anything
-                }
-            } else {
-                match (h1.0, h2.0) {
-                    (High, o) => o,
-                    (o, High) => o,
-                    (Five, _) => Five,
-                    (_, Five) => Five,
-                    (Chariot, _) => Chariot,
-                    (_, Chariot) => Chariot,
-                    (Pair, Three) => FullHouse,
-                    (Three, Pair) => FullHouse,
-                    (FullHouse, _) => FullHouse,
-                    (_, FullHouse) => FullHouse,
-                    (Three, _) => Three,
-                    (_, Three) => Three,
-                    (Pair, Pair) => TwoPair,
-                    (TwoPair, _) => TwoPair,
-                    (_, TwoPair) => TwoPair,
+    let ddwc = cards.iter().dedup_with_count();
+    let mut jokers = 0;
+    let mut fuuuck: Vec<(usize, &u8)> = ddwc
+        .clone()
+        .filter_map(|(cn, c)| match c {
+            1 => {
+                if (cn == 5) {
+                    Some((cn, c))
+                } else {
+                    jokers = cn;
+                    None
                 }
             }
+            _ => Some((cn, c)),
+        })
+        .collect();
+    println!("fuuuck ? {:?}", fuuuck);
+    let max_poz = fuuuck
+        .iter()
+        .position_max_by(|x, y| {
+            if (*x.1 == 1) {
+                Ordering::Less
+            } else if *y.1 == 1 {
+                Ordering::Greater
+            } else if x.0.cmp(&y.0) == Ordering::Equal {
+                x.1.cmp(y.1)
+            } else {
+                x.0.cmp(&y.0)
+            }
+        })
+        .unwrap();
+    let (cn_, c_) = fuuuck[max_poz];
+    fuuuck[max_poz] = (cn_ + jokers, c_);
+    fuuuck
+        .iter()
+        .map(|(cn, _)| match cn {
+            1 => High,
+            2 => Pair,
+            3 => Three,
+            4 => Chariot,
+            5 => Five,
+            _ => High,
+        })
+        .reduce(|h1, h2| match (h1, h2) {
+            (High, o) => o,
+            (o, High) => o,
+            (Five, _) => Five,
+            (_, Five) => Five,
+            (Chariot, _) => Chariot,
+            (_, Chariot) => Chariot,
+            (Pair, Three) => FullHouse,
+            (Three, Pair) => FullHouse,
+            (FullHouse, _) => FullHouse,
+            (_, FullHouse) => FullHouse,
+            (Three, _) => Three,
+            (_, Three) => Three,
+            (Pair, Pair) => TwoPair,
+            (TwoPair, _) => TwoPair,
+            (_, TwoPair) => TwoPair,
         })
         .unwrap()
 }
